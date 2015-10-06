@@ -1,0 +1,34 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 14
+VisualStudioVersion = 14.0.23107.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ArchieML", "ArchieML\ArchieML.csproj", "{7866673E-1DF4-4C88-9265-537B703F47B5}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "aml", "aml\aml.csproj", "{7A8075EB-568C-46C2-9E70-164EF1993B56}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ArchieML-Tests", "ArchieML-Tests\ArchieML-Tests.csproj", "{3F6CEF0D-8D97-4BC9-A5ED-8AD6BEF83255}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{7866673E-1DF4-4C88-9265-537B703F47B5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7866673E-1DF4-4C88-9265-537B703F47B5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7866673E-1DF4-4C88-9265-537B703F47B5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7866673E-1DF4-4C88-9265-537B703F47B5}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7A8075EB-568C-46C2-9E70-164EF1993B56}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7A8075EB-568C-46C2-9E70-164EF1993B56}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7A8075EB-568C-46C2-9E70-164EF1993B56}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7A8075EB-568C-46C2-9E70-164EF1993B56}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3F6CEF0D-8D97-4BC9-A5ED-8AD6BEF83255}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3F6CEF0D-8D97-4BC9-A5ED-8AD6BEF83255}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3F6CEF0D-8D97-4BC9-A5ED-8AD6BEF83255}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3F6CEF0D-8D97-4BC9-A5ED-8AD6BEF83255}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
