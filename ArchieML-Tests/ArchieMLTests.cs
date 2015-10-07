@@ -15,16 +15,5 @@ namespace ArchieML.Tests {
             Archie.Load("");
             //If you don't throw an exception, great!
         }
-
-        [TestMethod]
-        public void TestBasicKeys() {
-            var result = Archie.Load(@"
-This is a key:
-  key: value
-It's a nice key!");
-            Assert.Equals(result, new Dictionary<string, object>() {
-                {"key", "value" }
-            });
-        }
     }
 }

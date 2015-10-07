@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using ArchieML;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Newtonsoft.Json.Linq;
 
 namespace ArchieML_Tests {
     /// <summary>
@@ -15,37 +16,36 @@ namespace ArchieML_Tests {
         [TestMethod]
         public void TestParsesKeyValuePairs() {
             var result = Archie.Load("key:value");
-            var expected = new Hashtable() { { "key", "value" } };
-            //var expected = new Dictionary<string, object> { { "key", "value" } };
-            CollectionAssert.AreEquivalent(expected, (ICollection)result);
+            var expected = new JObject(new JProperty("key", "value"));
+            Assert.IsTrue(JToken.DeepEquals(result, expected));
         }
 
         [TestMethod]
         public void TestIgnoresSpacesAroundKey() {
             var result = Archie.Load("  key  :value");
-            var expected = new Hashtable() { { "key", "value" } };
-            CollectionAssert.AreEquivalent(expected, (ICollection)result);
+            var expected = new JObject(new JProperty("key", "value"));
+            Assert.IsTrue(JToken.DeepEquals(result, expected));
         }
 
         [TestMethod]
         public void TestIgnoresTabsAroundKey() {
             var result = Archie.Load("\t\tkey\t:value");
-            var expected = new Hashtable() { { "key", "value" } };
-            CollectionAssert.AreEquivalent(expected, (ICollection)result);
+            var expected = new JObject(new JProperty("key", "value"));
+            Assert.IsTrue(JToken.DeepEquals(result, expected));
         }
 
         [TestMethod]
         public void TestIgnoresSpacesAroundValue() {
             var result = Archie.Load("key:   value   ");
-            var expected = new Hashtable() { { "key", "value" } };
-            CollectionAssert.AreEquivalent(expected, (ICollection)result);
+            var expected = new JObject(new JProperty("key", "value"));
+            Assert.IsTrue(JToken.DeepEquals(result, expected));
         }
 
         [TestMethod]
         public void TestIgnoresTabsAroundValue() {
             var result = Archie.Load("key:\tvalue\t");
-            var expected = new Hashtable() { { "key", "value" } };
-            CollectionAssert.AreEquivalent(expected, (ICollection)result);
+            var expected = new JObject(new JProperty("key", "value"));
+            Assert.IsTrue(JToken.DeepEquals(result, expected));
         }
 
         [TestMethod]
@@ -53,15 +53,15 @@ namespace ArchieML_Tests {
             var result = Archie.Load(@"
 key:value
 key:newvalue");
-            var expected = new Hashtable() { { "key", "newvalue" } };
-            CollectionAssert.AreEquivalent(expected, (ICollection)result);
+            var expected = new JObject(new JProperty("key", "newvalue"));
+            Assert.IsTrue(JToken.DeepEquals(result, expected));
         }
 
         [TestMethod]
         public void TestNonLetterCharactersAtStartOfValue() {
             var result = Archie.Load("key::value");
-            var expected = new Hashtable() { { "key", "value" } };
-            CollectionAssert.AreEquivalent(expected, (ICollection)result);
+            var expected = new JObject(new JProperty("key", ":value"));
+            Assert.IsTrue(JToken.DeepEquals(result, expected));
         }
 
         [TestMethod]
@@ -69,8 +69,8 @@ key:newvalue");
             var result = Archie.Load(@"
 key: value
 Key: Value");
-            var expected = new Hashtable() { { "key", "value" }, { "Key", "Value"} };
-            CollectionAssert.AreEquivalent(expected, (ICollection)result);
+            var expected = new JObject(new JProperty("key", "value"), new JProperty("Key", "Value"));
+            Assert.IsTrue(JToken.DeepEquals(result, expected));
         }
 
         [TestMethod]
@@ -79,15 +79,15 @@ Key: Value");
 other stuff
 key: value
 other stuff");
-            var expected = new Hashtable() { { "key", "value" } };
-            CollectionAssert.AreEquivalent(expected, (ICollection)result);
+            var expected = new JObject(new JProperty("key", "value"));
+            Assert.IsTrue(JToken.DeepEquals(result, expected));
         }
 
         [TestMethod]
         public void TestHtmlAllowedInValues() {
             var result = Archie.Load(@"key: <strong>value</strong>");
-            var expected = new Hashtable() { { "key", "<strong>value</strong>" } };
-            CollectionAssert.AreEquivalent(expected, (ICollection)result);
+            var expected = new JObject(new JProperty("key", "<strong>value</strong>"));
+            Assert.IsTrue(JToken.DeepEquals(result, expected));
         }
     }
 }
