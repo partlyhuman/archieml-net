@@ -38,6 +38,10 @@ namespace ArchieML {
         CaseInsensitive,
     }
 
+    /// <summary>
+    /// Parser implementing the ArchieML Parser 1.0 Spec
+    /// @see http://archieml.org/spec/1.0/CR-20150509.html
+    /// </summary>
     public class Parser {
 
         internal enum ContextType {
@@ -50,7 +54,11 @@ namespace ArchieML {
         protected static RegexOptions OPTIONS_CX = RegexOptions.Compiled | RegexOptions.IgnorePatternWhitespace;
         protected static Regex KEY_VALUE_PATTERN = new Regex(@"^\s* (?<key> [a-zA-Z0-9_\-\.]+ ) \s* : \s* (?<value> .+ )$", OPTIONS_CX);
         protected static Regex OBJECT_SCOPE_PATTERN = new Regex(@"^\s* { \s* (?<key> [a-zA-Z0-9_\-\.]+ )? \s* }", OPTIONS_CX);
-        
+        protected static Regex SKIP_COMMAND_PATTERN = new Regex(@"^\s* : (?: (?<start> skip )|(?<end> endskip) )", OPTIONS_CX | RegexOptions.IgnoreCase);
+        protected static Regex IGNORE_COMMAND_PATTERN = new Regex(@"^\s*:ignore", OPTIONS_CX | RegexOptions.IgnoreCase);
+        protected static Regex END_MULTILINE_COMMAND_PATTERN = new Regex(@"^\s*:end", OPTIONS_CX | RegexOptions.IgnoreCase);
+        protected static Regex MULTILINE_ESCAPES_PATTERN = new Regex(@"^ \\ (?= [ \{ \[ \* \: \\ ] )", OPTIONS_CX);
+
         protected ParserOptions _options;
 
         public Parser(ParserOptions options = ParserOptions.None) {
@@ -74,15 +82,46 @@ namespace ArchieML {
             while ((line = reader.ReadLine()) != null) {
                 bool isLineHandled = false;
 
+                // Handle :IGNORE command
+                if (IGNORE_COMMAND_PATTERN.IsMatch(line)) {
+                    // :ignore = We're done here, stop parsing completely
+                    break;
+                }
+
+                // Handle :SKIP/ENDSKIP commands
+                Match skipCommandMatch = SKIP_COMMAND_PATTERN.Match(line);
+                if (!isLineHandled && skipCommandMatch.Success) {
+                    if (skipCommandMatch.Groups["start"].Success) {
+                        isSkipping = true;
+                        ClearMultilineBuffer(multilineBuffer, ref multilineBufferDestination);
+                    }
+                    if (skipCommandMatch.Groups["end"].Success) {
+                        isSkipping = false;
+                    }
+                    isLineHandled = true;
+                }
+
+                // Skip the line before we start parsing anything other than potential :endskip
+                if (isSkipping) {
+                    continue;
+                }
+
+                // Handle :END multiline end command
+                if (!isLineHandled && END_MULTILINE_COMMAND_PATTERN.IsMatch(line)) {
+                    FlushBuffer(multilineBuffer, multilineBufferDestination);
+                    isLineHandled = true;
+                }
+
                 // Handle KEY : VALUE lines
                 Match keyValueMatch = KEY_VALUE_PATTERN.Match(line);
                 if (!isLineHandled && contextType == ContextType.Object && keyValueMatch.Success) {
-                    FlushBuffer(multilineBuffer);
+                    ClearMultilineBuffer(multilineBuffer, ref multilineBufferDestination);
 
                     string keyString = keyValueMatch.Groups["key"].Value;
                     string valueString = keyValueMatch.Groups["value"].Value;
                     JValue value = new JValue(valueString.TrimEnd());
                     multilineBuffer.Append(valueString);
+                    multilineBuffer.Append('\n');
 
                     JObject target = (JObject)context;
                     TraverseOrCreateIntermediateKeyPath(ref keyString, ref target, includingFinal: false);
@@ -102,8 +141,7 @@ namespace ArchieML {
                 // Handle {SCOPE} commands
                 Match objectScopeMatch = OBJECT_SCOPE_PATTERN.Match(line);
                 if (!isLineHandled && objectScopeMatch.Success) {
-                    FlushBuffer(multilineBuffer, multilineBufferDestination);
-                    multilineBufferDestination = null;
+                    ClearMultilineBuffer(multilineBuffer, ref multilineBufferDestination);
 
                     bool isObjectScopeEnd = !objectScopeMatch.Groups["key"].Success;
                     if (isObjectScopeEnd) {
@@ -121,16 +159,34 @@ namespace ArchieML {
                 }
 
                 if (!isLineHandled) {
+                    // NOTE: spec below may be incorrect.
+                    // SPEC: To avoid as much processing as possible, leading backslashes should be removed only when the backslash 
+                    // is the first character of a line (but not a value's first line), and when the second character is any of the
+                    // following: {, [, *, : or \.
+                    //string escapeTrimmedLine = MULTILINE_ESCAPES_PATTERN.Replace(line, "");
+
+                    // NOTE: alternatively, just trim initial \. Tests indicate this is proper behavior.
+                    if (line.StartsWith("\\")) {
+                        line = line.Remove(0, 1);
+                    }
+
                     multilineBuffer.Append(line);
+                    multilineBuffer.Append('\n');
                 }
             }
 
             return root;
         }
 
+        protected void ClearMultilineBuffer(StringBuilder buffer, ref JToken destination) {
+            destination = null;
+            buffer.Length = 0;
+        }
+
         protected void FlushBuffer(StringBuilder buffer, JToken destination = null) {
             if (destination as JValue != null) {
-                ((JValue)destination).Value = buffer.ToString();
+                // Leading and trailing whitespace is trimmed, all inner whitespace and newlines are preserved.
+                ((JValue)destination).Value = buffer.ToString().Trim(' ', '\t', '\n');
             }
             buffer.Length = 0;
         }
