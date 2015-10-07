@@ -6,6 +6,7 @@ using System.IO;
 using System.Text;
 using System.Text.RegularExpressions;
 using Newtonsoft.Json.Linq;
+using System.Collections.Generic;
 
 namespace ArchieML {
 
@@ -48,7 +49,7 @@ namespace ArchieML {
 
         protected static RegexOptions OPTIONS_CX = RegexOptions.Compiled | RegexOptions.IgnorePatternWhitespace;
         protected static Regex KEY_VALUE_PATTERN = new Regex(@"^\s* (?<key> [a-zA-Z0-9_\-\.]+ ) \s* : \s* (?<value> .+ )$", OPTIONS_CX);
-        protected static Regex OBJECT_SCOPE_PATTERN = new Regex(@"^\s* {{ \s* (?<key> [a-zA-Z0-9_\-\.]+ )? \s* }} \s*$", OPTIONS_CX);
+        protected static Regex OBJECT_SCOPE_PATTERN = new Regex(@"^\s* { \s* (?<key> [a-zA-Z0-9_\-\.]+ )? \s* }", OPTIONS_CX);
         
         protected ParserOptions _options;
 
@@ -63,7 +64,7 @@ namespace ArchieML {
         public JObject Parse(TextReader reader) {
             string line;
             StringBuilder multilineBuffer = new StringBuilder(1024);
-            JValue multilineBufferDestination = null;
+            JToken multilineBufferDestination = null;
             JObject root = new JObject();
             JContainer context = root;
             ContextType contextType = ContextType.Object;
@@ -73,35 +74,48 @@ namespace ArchieML {
             while ((line = reader.ReadLine()) != null) {
                 bool isLineHandled = false;
 
+                // Handle KEY : VALUE lines
                 Match keyValueMatch = KEY_VALUE_PATTERN.Match(line);
                 if (!isLineHandled && contextType == ContextType.Object && keyValueMatch.Success) {
                     FlushBuffer(multilineBuffer);
+
                     string keyString = keyValueMatch.Groups["key"].Value;
                     string valueString = keyValueMatch.Groups["value"].Value;
                     JValue value = new JValue(valueString.TrimEnd());
                     multilineBuffer.Append(valueString);
 
-                    //TODO set multilineBufferDestination
-
-                    var keyPath = keyString.Split('.').ToList();
                     JObject target = (JObject)context;
-                    while (keyPath.Count > 1) {
-                        string pathFragment = keyPath.First();
-                        keyPath.RemoveAt(0);
-                        JToken child = target[pathFragment];
-                        if (child == null || child.Type != JTokenType.Object) {
-                            target[pathFragment] = new JObject();
-                        }
-                        target = (JObject)target[pathFragment];
-                    }
-                    string key = keyPath[0];
-                    JProperty keyValue = target.Property(key);
+                    TraverseOrCreateIntermediateKeyPath(ref keyString, ref target, includingFinal: false);
+
+                    JProperty keyValue = target.Property(keyString);
                     if (keyValue == null) {
-                        keyValue = new JProperty(key, value);
+                        keyValue = new JProperty(keyString, value);
                         target.Add(keyValue);
                     }
                     else {
                         keyValue.Value = value;
+                    }
+                    multilineBufferDestination = keyValue.Value;
+                    isLineHandled = true;
+                }
+
+                // Handle {SCOPE} commands
+                Match objectScopeMatch = OBJECT_SCOPE_PATTERN.Match(line);
+                if (!isLineHandled && objectScopeMatch.Success) {
+                    FlushBuffer(multilineBuffer, multilineBufferDestination);
+                    multilineBufferDestination = null;
+
+                    bool isObjectScopeEnd = !objectScopeMatch.Groups["key"].Success;
+                    if (isObjectScopeEnd) {
+                        //{} scope ending, pop context back to root
+                        context = root;
+                    }
+                    else {
+                        //{scope} scope starting, create whole key path
+                        var keyPathString = objectScopeMatch.Groups["key"].Value;
+                        var target = root;
+                        TraverseOrCreateIntermediateKeyPath(ref keyPathString, ref target, true);
+                        context = target;
                     }
                     isLineHandled = true;
                 }
@@ -114,11 +128,29 @@ namespace ArchieML {
             return root;
         }
 
-        protected void FlushBuffer(StringBuilder buffer, JValue destination = null) {
-            if (destination != null) {
-                destination.Value = buffer.ToString();
+        protected void FlushBuffer(StringBuilder buffer, JToken destination = null) {
+            if (destination as JValue != null) {
+                ((JValue)destination).Value = buffer.ToString();
             }
             buffer.Length = 0;
+        }
+
+        protected bool TraverseOrCreateIntermediateKeyPath(ref string keyPathString, ref JObject target, bool includingFinal) {
+            //TODO validate keypath
+            List<string> keyPath = keyPathString.Split('.').ToList();
+            int limit = includingFinal ? 0 : 1;
+            while (keyPath.Count > limit) {
+                string pathFragment = keyPath.First();
+                keyPath.RemoveAt(0);
+                JToken child = target[pathFragment];
+                if (child == null || child.Type != JTokenType.Object) {
+                    //create path fragment or set to object (if it was a simple value before)
+                    target[pathFragment] = new JObject();
+                }
+                target = (JObject)target[pathFragment];
+            }
+            keyPathString = includingFinal? null : keyPath[0];
+            return true;
         }
     }
 }

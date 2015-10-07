@@ -51,5 +51,7 @@ object_to_string.scope: value
             var expected = JObject.Parse(@"{'string_to_object': {'scope': {'scope': 'value'}}, 'object_to_string': {'scope': 'value'}}");
             Assert.IsTrue(JToken.DeepEquals(result, expected));
         }
+
+        //TODO test dots in the wrong places like beginning, end, with nothing in between them
     }
 }

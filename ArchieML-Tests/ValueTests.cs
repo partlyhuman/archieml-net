@@ -14,42 +14,42 @@ namespace ArchieML_Tests {
     [TestClass]
     public partial class ValueTests {
         [TestMethod]
-        public void TestParsesKeyValuePairs() {
+        public void Values01ParsesKeyValuePairs() {
             var result = Archie.Load("key:value");
             var expected = new JObject(new JProperty("key", "value"));
             Assert.IsTrue(JToken.DeepEquals(result, expected));
         }
 
         [TestMethod]
-        public void TestIgnoresSpacesAroundKey() {
+        public void Values02IgnoresSpacesAroundKey() {
             var result = Archie.Load("  key  :value");
             var expected = new JObject(new JProperty("key", "value"));
             Assert.IsTrue(JToken.DeepEquals(result, expected));
         }
 
         [TestMethod]
-        public void TestIgnoresTabsAroundKey() {
+        public void Values03IgnoresTabsAroundKey() {
             var result = Archie.Load("\t\tkey\t:value");
             var expected = new JObject(new JProperty("key", "value"));
             Assert.IsTrue(JToken.DeepEquals(result, expected));
         }
 
         [TestMethod]
-        public void TestIgnoresSpacesAroundValue() {
+        public void Values04IgnoresSpacesAroundValue() {
             var result = Archie.Load("key:   value   ");
             var expected = new JObject(new JProperty("key", "value"));
             Assert.IsTrue(JToken.DeepEquals(result, expected));
         }
 
         [TestMethod]
-        public void TestIgnoresTabsAroundValue() {
+        public void Values05IgnoresTabsAroundValue() {
             var result = Archie.Load("key:\tvalue\t");
             var expected = new JObject(new JProperty("key", "value"));
             Assert.IsTrue(JToken.DeepEquals(result, expected));
         }
 
         [TestMethod]
-        public void TestDuplicateKeysOverwriteValues() {
+        public void Values06DuplicateKeysOverwriteValues() {
             var result = Archie.Load(@"
 key:value
 key:newvalue");
@@ -58,14 +58,14 @@ key:newvalue");
         }
 
         [TestMethod]
-        public void TestNonLetterCharactersAtStartOfValue() {
+        public void Values07NonLetterCharactersAtStartOfValue() {
             var result = Archie.Load("key::value");
             var expected = new JObject(new JProperty("key", ":value"));
             Assert.IsTrue(JToken.DeepEquals(result, expected));
         }
 
         [TestMethod]
-        public void TestKeysAreCaseSensitive() {
+        public void Values08KeysAreCaseSensitive() {
             var result = Archie.Load(@"
 key: value
 Key: Value");
@@ -74,7 +74,7 @@ Key: Value");
         }
 
         [TestMethod]
-        public void TestLinesWithoutKeysIgnored() {
+        public void Values09LinesWithoutKeysIgnored() {
             var result = Archie.Load(@"
 other stuff
 key: value
@@ -84,7 +84,7 @@ other stuff");
         }
 
         [TestMethod]
-        public void TestHtmlAllowedInValues() {
+        public void Values10HtmlAllowedInValues() {
             var result = Archie.Load(@"key: <strong>value</strong>");
             var expected = new JObject(new JProperty("key", "<strong>value</strong>"));
             Assert.IsTrue(JToken.DeepEquals(result, expected));
