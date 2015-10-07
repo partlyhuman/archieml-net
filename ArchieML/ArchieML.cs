@@ -52,12 +52,13 @@ namespace ArchieML {
         }
 
         protected static RegexOptions OPTIONS_CX = RegexOptions.Compiled | RegexOptions.IgnorePatternWhitespace;
-        protected static Regex KEY_VALUE_PATTERN = new Regex(@"^\s* (?<key> [a-zA-Z0-9_\-\.]+ ) \s* : \s* (?<value> .+ )$", OPTIONS_CX);
-        protected static Regex OBJECT_SCOPE_PATTERN = new Regex(@"^\s* { \s* (?<key> [a-zA-Z0-9_\-\.]+ )? \s* }", OPTIONS_CX);
-        protected static Regex SKIP_COMMAND_PATTERN = new Regex(@"^\s* : (?: (?<start> skip )|(?<end> endskip) )", OPTIONS_CX | RegexOptions.IgnoreCase);
-        protected static Regex IGNORE_COMMAND_PATTERN = new Regex(@"^\s*:ignore", OPTIONS_CX | RegexOptions.IgnoreCase);
-        protected static Regex END_MULTILINE_COMMAND_PATTERN = new Regex(@"^\s*:end", OPTIONS_CX | RegexOptions.IgnoreCase);
-        protected static Regex MULTILINE_ESCAPES_PATTERN = new Regex(@"^ \\ (?= [ \{ \[ \* \: \\ ] )", OPTIONS_CX);
+        protected static Regex KEY_VALUE_PATTERN = new Regex(@"\A\s* (?<key> [a-zA-Z0-9_\-\.]+ ) \s* : \s* (?<value> .+ )$", OPTIONS_CX);
+        protected static Regex OBJECT_SCOPE_PATTERN = new Regex(@"\A\s* { \s* (?<key> [a-zA-Z0-9_\-\.]+ )? \s* }", OPTIONS_CX);
+        protected static Regex SKIP_COMMAND_PATTERN = new Regex(@"\A\s* : (?: (?<start> skip )|(?<end> endskip) )", OPTIONS_CX | RegexOptions.IgnoreCase);
+        protected static Regex IGNORE_COMMAND_PATTERN = new Regex(@"\A\s* :ignore", OPTIONS_CX | RegexOptions.IgnoreCase);
+        protected static Regex END_MULTILINE_COMMAND_PATTERN = new Regex(@"\A\s* :end", OPTIONS_CX | RegexOptions.IgnoreCase);
+        //protected static Regex MULTILINE_ESCAPES_PATTERN = new Regex(@"^ \\ (?= [ \{ \[ \* \: \\ ] )", OPTIONS_CX);
+        protected static Regex ARRAY_PATTERN = new Regex(@"\A\s* \[ \s* (?<key> [a-zA-Z0-9_\-\.]+ )? \s* ]", OPTIONS_CX);
 
         protected ParserOptions _options;
 
@@ -82,13 +83,13 @@ namespace ArchieML {
             while ((line = reader.ReadLine()) != null) {
                 bool isLineHandled = false;
 
-                // Handle :IGNORE command
+                // Handle :IGNORE
                 if (IGNORE_COMMAND_PATTERN.IsMatch(line)) {
                     // :ignore = We're done here, stop parsing completely
                     break;
                 }
 
-                // Handle :SKIP/ENDSKIP commands
+                // Handle :SKIP/ENDSKIP
                 Match skipCommandMatch = SKIP_COMMAND_PATTERN.Match(line);
                 if (!isLineHandled && skipCommandMatch.Success) {
                     if (skipCommandMatch.Groups["start"].Success) {
@@ -106,15 +107,40 @@ namespace ArchieML {
                     continue;
                 }
 
-                // Handle :END multiline end command
+                // Handle :END
                 if (!isLineHandled && END_MULTILINE_COMMAND_PATTERN.IsMatch(line)) {
                     FlushBuffer(multilineBuffer, multilineBufferDestination);
                     isLineHandled = true;
                 }
 
-                // Handle KEY : VALUE lines
+                // Handle [ARRAY]
+                Match arrayMatch = ARRAY_PATTERN.Match(line);
+                if (!isLineHandled && contextType == ContextType.Object && arrayMatch.Success) {
+                    if (arrayMatch.Groups["key"].Success) {
+                        ClearMultilineBuffer(multilineBuffer, ref multilineBufferDestination);
+                        string keyString = arrayMatch.Groups["key"].Value;
+
+                        JObject target = (JObject)context;
+                        TraverseOrCreateIntermediateKeyPath(ref keyString, ref target, includingFinal: false);
+
+                        if (target[keyString] as JArray != null) {
+                            // array path already exists, set context to it
+                            context = (JArray)target[keyString];
+                        }
+                        else {
+                            // no existing array path, create it and set context to it
+                            context = new JArray();
+                            target[keyString] = context;
+                        }
+                        //TODO this type may be an intermediate "unknown array" type until we encounter the next line?
+                        contextType = ContextType.ObjectArray;
+                        arrayContextFirstKey = null;
+                    }
+                }
+
+                // Handle KEY : VALUE
                 Match keyValueMatch = KEY_VALUE_PATTERN.Match(line);
-                if (!isLineHandled && contextType == ContextType.Object && keyValueMatch.Success) {
+                if (!isLineHandled && keyValueMatch.Success) {
                     ClearMultilineBuffer(multilineBuffer, ref multilineBufferDestination);
 
                     string keyString = keyValueMatch.Groups["key"].Value;
@@ -138,7 +164,7 @@ namespace ArchieML {
                     isLineHandled = true;
                 }
 
-                // Handle {SCOPE} commands
+                // Handle {SCOPE}
                 Match objectScopeMatch = OBJECT_SCOPE_PATTERN.Match(line);
                 if (!isLineHandled && objectScopeMatch.Success) {
                     ClearMultilineBuffer(multilineBuffer, ref multilineBufferDestination);
@@ -147,6 +173,7 @@ namespace ArchieML {
                     if (isObjectScopeEnd) {
                         //{} scope ending, pop context back to root
                         context = root;
+                        contextType = ContextType.Object;
                     }
                     else {
                         //{scope} scope starting, create whole key path
@@ -154,6 +181,7 @@ namespace ArchieML {
                         var target = root;
                         TraverseOrCreateIntermediateKeyPath(ref keyPathString, ref target, true);
                         context = target;
+                        contextType = ContextType.Object;
                     }
                     isLineHandled = true;
                 }

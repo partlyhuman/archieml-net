@@ -57,6 +57,7 @@
   </Choose>
   <ItemGroup>
     <Compile Include="ArchieMLTests.cs" />
+    <Compile Include="ArrayTests.cs" />
     <Compile Include="BlockCommentTests.cs" />
     <Compile Include="MultiLineTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
