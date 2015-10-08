@@ -120,13 +120,17 @@ topkey: value
         }
 
         [TestMethod]
-        public void ArraysX0() {
+        public void ArraysSimpleKeyValueProcessing() {
             var result = Archie.Load(@"
 [array]
-a: uno
-b: dos
+a: 1
+b: 2
+c: 3
+a: 10
+b: 20
+c: 30
 ");
-            var expected = JObject.Parse(@"{'array': [{'a': 'uno', 'b': 'dos'}]}");
+            var expected = JObject.Parse(@"{'array': [{'a': '1', 'b': '2', 'c': '3'}, {'a': '10', 'b': '20', 'c': '30'}]}");
             Assert.IsTrue(JToken.DeepEquals(result, expected));
         }
     }

@@ -116,6 +116,9 @@ namespace ArchieML {
                 // Handle [ARRAY]
                 Match arrayMatch = ARRAY_PATTERN.Match(line);
                 if (!isLineHandled && arrayMatch.Success) {
+                    ClearMultilineBuffer(multilineBuffer, ref multilineBufferDestination);
+                    // TODO this may not be correct. Acting as if any [array] tag starts a new one at root.
+                    context = root;
                     if (arrayMatch.Groups["key"].Success) {
                         // [arrayname] - create a new array in the context
                         string keyString = arrayMatch.Groups["key"].Value;
@@ -123,15 +126,21 @@ namespace ArchieML {
                         JObject target = (JObject)context;
                         TraverseOrCreateIntermediateKeyPath(ref keyString, ref target, includingFinal: false);
 
-                        if (target[keyString] as JArray != null) {
-                            // array path already exists, set context to it
-                            context = (JArray)target[keyString];
-                        }
-                        else {
-                            // no existing array path, create it and set context to it
-                            context = new JArray();
-                            target[keyString] = context;
-                        }
+                        // NOTE redefining an array clears it
+                        // @see arrays_complex.13.aml
+                        //if (target[keyString] as JArray != null) {
+                        //    // array path already exists, set context to it
+                        //    context = (JArray)target[keyString];
+                        //}
+                        //else {
+                        //    // no existing array path, create it and set context to it
+                        //    context = new JArray();
+                        //    target[keyString] = context;
+                        //}
+
+                        context = new JArray();
+                        target[keyString] = context;
+
                         //TODO this type may be an intermediate "unknown array" type until we encounter the next line?
                         contextType = ContextType.ObjectArray;
                         arrayContextFirstKey = null;
@@ -141,7 +150,6 @@ namespace ArchieML {
                         context = root;
                         contextType = ContextType.Object;
                     }
-                    ClearMultilineBuffer(multilineBuffer, ref multilineBufferDestination);
                     isLineHandled = true;
                 }
 
