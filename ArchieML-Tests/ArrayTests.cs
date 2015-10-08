@@ -58,7 +58,76 @@ scope.key: value
             var expected = JObject.Parse(@"{'array': [{'scope': {'key': 'value'}}, {'scope': {'key': 'value'}}]}");
             Assert.IsTrue(JToken.DeepEquals(result, expected));
         }
+        [TestMethod]
+        public void Arrays09EndArrayCommandResetsToGlobalScope() {
+            var result = Archie.Load(@"
+[array]
+[]
+key:value
+");
+            var expected = JObject.Parse(@"{'array': [], 'key': 'value'}");
+            Assert.IsTrue(JToken.DeepEquals(result, expected));
+        }
+        [TestMethod]
+        public void Arrays10IgnoreSpacesInsideEndArrayCommand() {
+            var result = Archie.Load(@"
+[array]
+[  ]
+key:value
+");
+            var expected = JObject.Parse(@"{'array': [], 'key': 'value'}");
+            Assert.IsTrue(JToken.DeepEquals(result, expected));
+        }
+        [TestMethod]
+        public void Arrays11IgnoreTabsInsideEndArrayCommand() {
+            var result = Archie.Load(@"
+[array]
+[       ]
+key:value
+");
+            var expected = JObject.Parse(@"{'array': [], 'key': 'value'}");
+            Assert.IsTrue(JToken.DeepEquals(result, expected));
+        }
+        [TestMethod]
+        public void Arrays12IgnoreSpacesAroundEndArrayCommand() {
+            var result = Archie.Load(@"
+[array]
+  []  
+key:value
+");
+            var expected = JObject.Parse(@"{'array': [], 'key': 'value'}");
+            Assert.IsTrue(JToken.DeepEquals(result, expected));
+        }
+        [TestMethod]
+        public void Arrays13IgnoreTabsAroundEndArrayCommand() {
+            var result = Archie.Load(@"
+[array]
+		[]		
+key:value
+");
+            var expected = JObject.Parse(@"{'array': [], 'key': 'value'}");
+            Assert.IsTrue(JToken.DeepEquals(result, expected));
+        }
+        [TestMethod]
+        public void Arrays14EmptyObjectClosesArray() {
+            var result = Archie.Load(@"
+[array]
+{}
+topkey: value
+");
+            var expected = JObject.Parse(@"{'array': [], 'topkey': 'value'}");
+            Assert.IsTrue(JToken.DeepEquals(result, expected));
+        }
 
-
+        [TestMethod]
+        public void ArraysX0() {
+            var result = Archie.Load(@"
+[array]
+a: uno
+b: dos
+");
+            var expected = JObject.Parse(@"{'array': [{'a': 'uno', 'b': 'dos'}]}");
+            Assert.IsTrue(JToken.DeepEquals(result, expected));
+        }
     }
 }

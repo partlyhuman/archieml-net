@@ -115,9 +115,9 @@ namespace ArchieML {
 
                 // Handle [ARRAY]
                 Match arrayMatch = ARRAY_PATTERN.Match(line);
-                if (!isLineHandled && contextType == ContextType.Object && arrayMatch.Success) {
+                if (!isLineHandled && arrayMatch.Success) {
                     if (arrayMatch.Groups["key"].Success) {
-                        ClearMultilineBuffer(multilineBuffer, ref multilineBufferDestination);
+                        // [arrayname] - create a new array in the context
                         string keyString = arrayMatch.Groups["key"].Value;
 
                         JObject target = (JObject)context;
@@ -136,6 +136,13 @@ namespace ArchieML {
                         contextType = ContextType.ObjectArray;
                         arrayContextFirstKey = null;
                     }
+                    else {
+                        // [] - close array and go back to global context
+                        context = root;
+                        contextType = ContextType.Object;
+                    }
+                    ClearMultilineBuffer(multilineBuffer, ref multilineBufferDestination);
+                    isLineHandled = true;
                 }
 
                 // Handle KEY : VALUE
@@ -149,13 +156,34 @@ namespace ArchieML {
                     multilineBuffer.Append(valueString);
                     multilineBuffer.Append('\n');
 
-                    JObject target = (JObject)context;
-                    TraverseOrCreateIntermediateKeyPath(ref keyString, ref target, includingFinal: false);
+                    JObject targetObject = context as JObject;
+                    if (contextType == ContextType.ObjectArray) {
+                        //NOTE: in the Object Array context, the context variable can be either the parent array (when totally empty), or the currently open object array instance.
+                        if (arrayContextFirstKey == null) {
+                            arrayContextFirstKey = keyString;
+                        }
+                        if (arrayContextFirstKey == keyString) {
+                            // first key or repeat of first key to appear, create new object
+                            targetObject = new JObject();
+                            if (context.Type == JTokenType.Object) {
+                                context = context.Parent; //go up to array
+                            }
+                            // add new object to array
+                            context.Add(targetObject);
+                            context = targetObject;
+                        } else {
+                            // add to existing object on array
+                            targetObject = (JObject)context;
+                        }
+                    }
+                    //TODO other array types?
 
-                    JProperty keyValue = target.Property(keyString);
+                    TraverseOrCreateIntermediateKeyPath(ref keyString, ref targetObject, includingFinal: false);
+
+                    JProperty keyValue = targetObject.Property(keyString);
                     if (keyValue == null) {
                         keyValue = new JProperty(keyString, value);
-                        target.Add(keyValue);
+                        targetObject.Add(keyValue);
                     }
                     else {
                         keyValue.Value = value;
