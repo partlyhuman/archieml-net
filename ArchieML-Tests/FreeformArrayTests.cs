@@ -6,7 +6,6 @@ using Newtonsoft.Json.Linq;
 namespace ArchieML_Tests {
     [TestClass]
     public class FreeformArrayTests {
-
         [TestMethod]
         public void Freeform01TextLinesAreConvertedIntoObjectsWithTypeText() {
             var result = Archie.Load(@"
@@ -146,6 +145,5 @@ Text
             var expected = JObject.Parse(@"{'freeform': [{'type': 'freeform', 'value': [{'type': 'text', 'value': 'Text'}]}]}");
             Assert.IsTrue(JToken.DeepEquals(result, expected));
         }
-
     }
 }

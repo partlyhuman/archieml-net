@@ -1,35 +1,13 @@
 ﻿using System;
-using System.Linq;
-using System.Collections;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using Newtonsoft.Json.Linq;
-using System.Collections.Generic;
 
 namespace ArchieML {
-
-    /// <summary>
-    /// Public facade to the ArchieML parser
-    /// </summary>
-    public static class Archie {
-        public static JObject Load(TextReader reader, ParserOptions options = ParserOptions.None) {
-            return (new Parser(options)).Parse(reader);
-        }
-
-        public static JObject Load(string input, ParserOptions options = ParserOptions.None) {
-            return Load(new StringReader(input), options);
-        }
-
-        public static JObject LoadFile(string filename, ParserOptions options = ParserOptions.None) {
-            return Load(File.OpenText(filename), options);
-        }
-
-        public static JObject Test() {
-            return new JObject(new JProperty("key", "value"));
-        }
-    }
 
     [Flags]
     public enum ParserOptions {
@@ -207,7 +185,7 @@ namespace ArchieML {
                         string valueString = simpleArrayValueMatch.Groups["value"].Value;
                         JValue value = new JValue(valueString.TrimEnd());
                         multilineBuffer.Append(valueString);
-                        multilineBuffer.Append('\n');
+                        multilineBuffer.Append(Environment.NewLine);
                         multilineBufferDestination = value;
 
                         JArray targetArray = (JArray)context;
@@ -225,7 +203,7 @@ namespace ArchieML {
                         string valueString = keyValueMatch.Groups["value"].Value;
                         JValue value = new JValue(valueString.TrimEnd());
                         multilineBuffer.Append(valueString);
-                        multilineBuffer.Append('\n');
+                        multilineBuffer.Append(Environment.NewLine);
 
                         JObject targetObject = context as JObject;
                         if (contextType.IsAnyOf(ContextType.UnknownArray, ContextType.ObjectArray)) {
@@ -298,7 +276,7 @@ namespace ArchieML {
                         }
 
                         multilineBuffer.Append(line);
-                        multilineBuffer.Append('\n');
+                        multilineBuffer.Append(Environment.NewLine);
                     }
 
                 } //per-line try block
@@ -342,3 +320,4 @@ namespace ArchieML {
         }
     }
 }
+
