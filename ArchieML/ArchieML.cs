@@ -38,19 +38,31 @@ namespace ArchieML {
         CaseInsensitive,
     }
 
+    internal enum ContextType {
+        Object,
+        UnknownArray,
+        ObjectArray,
+        StringArray,
+        FreeformArray,
+    }
+
+    internal static class ContextTypeExtensions {
+        internal static bool IsAnyOf(this ContextType self, params ContextType[] others) {
+            foreach (ContextType other in others) {
+                if (self == other) return true;
+            }
+            return false;
+        }
+        internal static bool IsObjectLike(this ContextType self) {
+            return (self == ContextType.Object || self == ContextType.ObjectArray);
+        }
+    }
+
     /// <summary>
     /// Parser implementing the ArchieML Parser 1.0 Spec
     /// @see http://archieml.org/spec/1.0/CR-20150509.html
     /// </summary>
     public class Parser {
-
-        internal enum ContextType {
-            Object,
-            ObjectArray,
-            StringArray,
-            FreeformArray,
-        }
-
         protected static RegexOptions OPTIONS_CX = RegexOptions.Compiled | RegexOptions.IgnorePatternWhitespace;
         protected static Regex KEY_VALUE_PATTERN = new Regex(@"\A\s* (?<key> [a-zA-Z0-9_\-\.]+ ) \s* : \s* (?<value> .+ )$", OPTIONS_CX);
         protected static Regex OBJECT_SCOPE_PATTERN = new Regex(@"\A\s* { \s* (?<key> [a-zA-Z0-9_\-\.]+ )? \s* }", OPTIONS_CX);
@@ -59,6 +71,7 @@ namespace ArchieML {
         protected static Regex END_MULTILINE_COMMAND_PATTERN = new Regex(@"\A\s* :end", OPTIONS_CX | RegexOptions.IgnoreCase);
         //protected static Regex MULTILINE_ESCAPES_PATTERN = new Regex(@"^ \\ (?= [ \{ \[ \* \: \\ ] )", OPTIONS_CX);
         protected static Regex ARRAY_PATTERN = new Regex(@"\A\s* \[ \s* (?<key> [a-zA-Z0-9_\-\.]+ )? \s* ]", OPTIONS_CX);
+        protected static Regex SIMPLE_ARRAY_VALUE_PATTERN = new Regex(@"\A\s* \* \s* (?<value> .+ )", OPTIONS_CX);
 
         protected ParserOptions _options;
 
@@ -142,7 +155,7 @@ namespace ArchieML {
                         target[keyString] = context;
 
                         //TODO this type may be an intermediate "unknown array" type until we encounter the next line?
-                        contextType = ContextType.ObjectArray;
+                        contextType = ContextType.UnknownArray;
                         arrayContextFirstKey = null;
                     }
                     else {
@@ -153,9 +166,29 @@ namespace ArchieML {
                     isLineHandled = true;
                 }
 
+                // Handle * VALUE
+                Match simpleArrayValueMatch = SIMPLE_ARRAY_VALUE_PATTERN.Match(line);
+                if (!isLineHandled && simpleArrayValueMatch.Success) {
+                    if (simpleArrayValueMatch.Groups["value"].Success && contextType.IsAnyOf(ContextType.StringArray, ContextType.UnknownArray)) {
+                        contextType = ContextType.StringArray;
+                        ClearMultilineBuffer(multilineBuffer, ref multilineBufferDestination);
+                        string valueString = simpleArrayValueMatch.Groups["value"].Value;
+                        JValue value = new JValue(valueString.TrimEnd());
+                        multilineBuffer.Append(valueString);
+                        multilineBuffer.Append('\n');
+                        multilineBufferDestination = value;
+
+                        JArray targetArray = (JArray)context;
+                        targetArray.Add(value);
+
+                        isLineHandled = true;
+                    }
+                    // Handle line? Or not - add to multiline?
+                }
+
                 // Handle KEY : VALUE
                 Match keyValueMatch = KEY_VALUE_PATTERN.Match(line);
-                if (!isLineHandled && keyValueMatch.Success) {
+                if (!isLineHandled && keyValueMatch.Success && contextType != ContextType.StringArray) {
                     ClearMultilineBuffer(multilineBuffer, ref multilineBufferDestination);
 
                     string keyString = keyValueMatch.Groups["key"].Value;
@@ -165,8 +198,9 @@ namespace ArchieML {
                     multilineBuffer.Append('\n');
 
                     JObject targetObject = context as JObject;
-                    if (contextType == ContextType.ObjectArray) {
+                    if (contextType.IsAnyOf(ContextType.UnknownArray, ContextType.ObjectArray)) {
                         //NOTE: in the Object Array context, the context variable can be either the parent array (when totally empty), or the currently open object array instance.
+                        contextType = ContextType.ObjectArray;
                         if (arrayContextFirstKey == null) {
                             arrayContextFirstKey = keyString;
                         }

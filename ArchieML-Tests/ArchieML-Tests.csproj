@@ -64,6 +64,7 @@
     <Compile Include="ScopeTests.cs" />
     <Compile Include="KeyTests.cs" />
     <Compile Include="IgnoreTests.cs" />
+    <Compile Include="SimpleArrayTests.cs" />
     <Compile Include="ValueTests.cs" />
   </ItemGroup>
   <ItemGroup>
