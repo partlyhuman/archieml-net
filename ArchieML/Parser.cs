@@ -16,36 +16,64 @@ namespace ArchieML {
         CaseInsensitive,
     }
 
-    internal enum ContextType {
+    /// <summary>
+    /// Possible states that the parser can be in depending on its current context. Changes the way lines are interpreted.
+    /// </summary>
+    internal enum ArchieContext {
+        /// <summary>
+        /// The context is an Object {}. Key/values, objects, and arrays are allowed. Root context is always an object.
+        /// </summary>
         Object,
+        /// <summary>
+        /// Right after an Array has been created, but before lines have been parsed which hint at the intended contents of the array.
+        /// At this point, the array may become an ObjectArray ("complex") array, or a StringArray ("simple") array.
+        /// </summary>
         UnknownArray,
+        /// <summary>
+        /// We're creating an array of objects, or "complex" array. The actual context may be the currently open object,
+        /// or the array itself.
+        /// </summary>
         ObjectArray,
+        /// <summary>
+        /// The context is a "simple" Array [] of strings. Only bulleted text * is allowed.
+        /// </summary>
         StringArray,
+        /// <summary>
+        /// The context is a "freeform" Array [], in which each line becomes an object with two properties, a "type" and "value".
+        /// </summary>
         FreeformArray,
     }
 
-    internal static class ContextTypeExtensions {
-        internal static bool IsAnyOf(this ContextType self, params ContextType[] others) {
-            foreach (ContextType other in others) {
-                if (self == other)
+    internal class Context {
+        public ArchieContext Type;
+        public JContainer Target;
+        public Context() { }
+        public Context(ArchieContext type, JContainer target) : this() {
+            Type = type;
+            Target = target;
+        }
+        /// <summary>
+        /// Checks if the context is in the list of passed, valid contexts.
+        /// </summary>
+        public bool IsAnyOf(params ArchieContext[] others) {
+            foreach (ArchieContext other in others) {
+                if (Type == other)
                     return true;
             }
             return false;
         }
-        internal static bool IsObjectLike(this ContextType self) {
-            return (self == ContextType.Object || self == ContextType.ObjectArray);
-        }
     }
 
+
     /// <summary>
-    /// Parser implementing the ArchieML Parser 1.0 Spec
-    /// @see http://archieml.org/spec/1.0/CR-20150509.html
+    /// Parser implementing the ArchieML Parser 1.0 Spec.
     /// </summary>
+    /// <see cref="http://archieml.org/spec/1.0/CR-20150509.html"/>
     internal class Parser {
 
         protected static RegexOptions OPTIONS_CX = RegexOptions.Compiled | RegexOptions.IgnorePatternWhitespace;
         protected static Regex KEY_VALUE_PATTERN = new Regex(@"\A\s* (?<key> [a-zA-Z0-9_\-\.]+ ) \s* : \s* (?<value> .+ )$", OPTIONS_CX);
-        protected static Regex OBJECT_SCOPE_PATTERN = new Regex(@"\A\s* { \s* (?<key> [a-zA-Z0-9_\-\.]+ )? \s* }", OPTIONS_CX);
+        protected static Regex OBJECT_SCOPE_PATTERN = new Regex(@"\A\s* { \s* (?<subobject> \.+ )? (?<key> [a-zA-Z0-9_\-\.]+ )? \s* }", OPTIONS_CX);
         protected static Regex SKIP_COMMAND_PATTERN = new Regex(@"\A\s* : (?: (?<start> skip )|(?<end> endskip) )", OPTIONS_CX | RegexOptions.IgnoreCase);
         protected static Regex IGNORE_COMMAND_PATTERN = new Regex(@"\A\s* :ignore", OPTIONS_CX | RegexOptions.IgnoreCase);
         protected static Regex END_MULTILINE_COMMAND_PATTERN = new Regex(@"\A\s* :end", OPTIONS_CX | RegexOptions.IgnoreCase);
@@ -79,14 +107,16 @@ namespace ArchieML {
         protected readonly JObject _root;
 
         /// <summary>
-        /// The current context, where new data will be added as it is encountered, much like a "with" block in Ecmascript.
+        /// Shortcut to get to the current context without using the context stack.
         /// </summary>
-        protected JContainer _context;
+        protected Context CurrentContext {
+            get {
+                return _contextStack.Peek();
+            }
+        }
 
-        /// <summary>
-        /// The type of context we are in currently, which changes how we may interpret a line. See enum ContextType for possible values.
-        /// </summary>
-        protected ContextType _contextType;
+        protected Stack<Context> _contextStack;
+
 
         /// <summary>
         /// Only used when inside an object ("complex") array, the first key encountered is memoized. Whenever it reoccurs, a new object is added to the array and becomes the context.
@@ -107,10 +137,10 @@ namespace ArchieML {
             _multilineBuffer = new StringBuilder(1024);
             _multilineBufferDestination = null;
             _root = new JObject();
-            _context = _root;
-            _contextType = ContextType.Object;
+            _contextStack = new Stack<Context>();
             _arrayContextFirstKey = null;
             _isSkipping = false;
+            _contextStack.Push(new Context(ArchieContext.Object, _root));
         }
 
         /// <summary>
@@ -150,9 +180,7 @@ namespace ArchieML {
                     if (ParseScopeCommands()) {
                         continue;
                     }
-                    if (_contextType == ContextType.FreeformArray) {
-                        //Plain or otherwise unhandled text in a freeform array gets added as a text line
-                        ParsePlainTextInFreeformArray();
+                    if (ParsePlainTextInFreeformArray()) {
                         continue;
                     }
 
@@ -171,18 +199,34 @@ namespace ArchieML {
             return _root;
         }
 
-        private void ParsePlainTextInFreeformArray() {
-            string lineTrimmed = _line.Trim();
-            if (!string.IsNullOrEmpty(lineTrimmed)) {
-                JObject item = new JObject();
-                item["type"] = "text";
-                item["value"] = lineTrimmed;
-                _context.Add(item);
+        /// <summary>
+        /// Interpret the line as plain text if the context is a freeform array. This adds an object of type "text" to the array.
+        /// </summary>
+        /// <example>
+        /// [+freeform]
+        /// plain text
+        /// is added
+        /// line by line
+        /// []
+        /// </example>
+        /// <returns></returns>
+        protected bool ParsePlainTextInFreeformArray() {
+            if (CurrentContext.Type == ArchieContext.FreeformArray) {
+                string lineTrimmed = _line.Trim();
+                if (!string.IsNullOrEmpty(lineTrimmed)) {
+                    JObject item = new JObject();
+                    item["type"] = "text";
+                    item["value"] = lineTrimmed;
+                    CurrentContext.Target.Add(item);
+                }
+                return true;
             }
+            return false;
         }
 
         /// <summary>
-        /// Interpret the line if it contains a {SCOPE} command, starting or ending a scope.
+        /// Interpret the line if it contains a {SCOPE} command, including {} (end scope).
+        /// Changes the context.
         /// </summary>
         /// <example>
         /// {location}
@@ -192,7 +236,7 @@ namespace ArchieML {
         /// {}
         /// </example>
         /// <returns>Whether the line was handled</returns>
-        private bool ParseScopeCommands() {
+        protected bool ParseScopeCommands() {
             Match objectScopeMatch = OBJECT_SCOPE_PATTERN.Match(_line);
             if (objectScopeMatch.Success) {
                 ClearMultilineBuffer();
@@ -200,16 +244,23 @@ namespace ArchieML {
                 bool isObjectScopeEnd = !objectScopeMatch.Groups["key"].Success;
                 if (isObjectScopeEnd) {
                     //{} scope ending, pop context back to root
-                    _context = _root;
-                    _contextType = ContextType.Object;
+                    PopContext();
                 }
                 else {
-                    //{scope} scope starting, create whole key path
                     var keyPathString = objectScopeMatch.Groups["key"].Value;
-                    var target = _root;
-                    TraverseOrCreateIntermediateKeyPath(ref keyPathString, ref target, true);
-                    _context = target;
-                    _contextType = ContextType.Object;
+                    JObject target;
+                    if (CurrentContext.Type == ArchieContext.FreeformArray) {
+                        var item = new JObject();
+                        target = new JObject();
+                        item["type"] = keyPathString;
+                        item["value"] = target;
+                        CurrentContext.Target.Add(item);
+                    } else {
+                        PopContext(); //TODO this can't be right
+                        target = (JObject)CurrentContext.Target;
+                        TraverseOrCreateIntermediateKeyPath(ref keyPathString, ref target, true);
+                    }
+                    _contextStack.Push(new Context(ArchieContext.Object, target));
                 }
                 return true;
             }
@@ -229,10 +280,10 @@ namespace ArchieML {
         /// application.copyright: 2015
         /// </example>
         /// <returns>Whether the line was handled</returns>
-        private bool ParseKeyValues() {
+        protected bool ParseKeyValues() {
             // Handle KEY : VALUE
             Match keyValueMatch = KEY_VALUE_PATTERN.Match(_line);
-            if (keyValueMatch.Success && _contextType != ContextType.StringArray) {
+            if (keyValueMatch.Success && CurrentContext.Type != ArchieContext.StringArray) {
                 ClearMultilineBuffer();
 
                 string keyString = keyValueMatch.Groups["key"].Value;
@@ -241,41 +292,38 @@ namespace ArchieML {
                 _multilineBuffer.Append(valueString);
                 _multilineBuffer.Append('\n');
 
-                JObject targetObject = _context as JObject;
+                JObject targetObject = CurrentContext.Target as JObject;
 
                 // If we're in an Object array
-                if (_contextType.IsAnyOf(ContextType.UnknownArray, ContextType.ObjectArray)) {
+                if (CurrentContext.IsAnyOf(ArchieContext.UnknownArray, ArchieContext.ObjectArray)) {
                     //NOTE: in the Object Array context, the context variable can be either the parent array (when totally empty), or the currently open object array instance.
-                    _contextType = ContextType.ObjectArray;
+                    CurrentContext.Type = ArchieContext.ObjectArray;
                     if (_arrayContextFirstKey == null) {
                         _arrayContextFirstKey = keyString;
                     }
                     if (_arrayContextFirstKey == keyString) {
                         // first key or repeat of first key to appear, create new object
                         targetObject = new JObject();
-                        if (_context.Type == JTokenType.Object) {
-                            _context = _context.Parent; //go up to array
+                        if (CurrentContext.Target.Type == JTokenType.Object) {
+                            CurrentContext.Target = CurrentContext.Target.Parent; //go up to array
                         }
                         // add new object to array
-                        _context.Add(targetObject);
-                        _context = targetObject;
-                    }
-                    else {
-                        // add to existing object on array
-                        targetObject = (JObject)_context;
+                        CurrentContext.Target.Add(targetObject);
+                        CurrentContext.Target = targetObject;
                     }
                 }
 
                 // If we're in a Freeform array
-                if (_contextType == ContextType.FreeformArray) {
+                if (CurrentContext.Type == ArchieContext.FreeformArray) {
                     //Freeform arrays don't use dot navigation in key names
                     //Freeform arrays don't do multiline text, they make new entries for each line
                     JObject item = new JObject();
                     item["type"] = keyValueMatch.Groups["key"].Value;
                     item["value"] = keyValueMatch.Groups["value"].Value.TrimEnd();
-                    _context.Add(item);
+                    CurrentContext.Target.Add(item);
                 }
                 else {
+                    // In an object, or object array, add the key and value to the context object, including key path.
                     TraverseOrCreateIntermediateKeyPath(ref keyString, ref targetObject, includingFinal: false);
                     JProperty keyValue = targetObject.Property(keyString);
                     if (keyValue == null) {
@@ -304,10 +352,10 @@ namespace ArchieML {
         /// []
         /// </example>
         /// <returns>Whether the line was handled</returns>
-        private bool ParseSimpleArrayBullets() {
+        protected bool ParseSimpleArrayBullets() {
             Match simpleArrayValueMatch = SIMPLE_ARRAY_VALUE_PATTERN.Match(_line);
-            if (_contextType.IsAnyOf(ContextType.StringArray, ContextType.UnknownArray) && simpleArrayValueMatch.Groups["value"].Success) {
-                _contextType = ContextType.StringArray;
+            if (CurrentContext.IsAnyOf(ArchieContext.StringArray, ArchieContext.UnknownArray) && simpleArrayValueMatch.Groups["value"].Success) {
+                CurrentContext.Type = ArchieContext.StringArray;
                 ClearMultilineBuffer();
                 string valueString = simpleArrayValueMatch.Groups["value"].Value;
                 JValue value = new JValue(valueString.TrimEnd());
@@ -315,7 +363,7 @@ namespace ArchieML {
                 _multilineBuffer.Append('\n');
                 _multilineBufferDestination = value;
 
-                JArray targetArray = (JArray)_context;
+                JArray targetArray = (JArray)CurrentContext.Target;
                 targetArray.Add(value);
                 return true;
             }
@@ -324,6 +372,7 @@ namespace ArchieML {
 
         /// <summary>
         /// Interpret the line if it has an [ARRAY] command, including [.NestedArrays], [+FreeformArrays], and [] (End arrays).
+        /// Changes the context.
         /// </summary>
         /// <example>
         /// [Contacts]
@@ -338,45 +387,56 @@ namespace ArchieML {
         /// []
         /// </example>
         /// <returns>Whether the line was handled</returns>
-        private bool ParseArrayCommands() {
+        protected bool ParseArrayCommands() {
             Match arrayMatch = ARRAY_PATTERN.Match(_line);
             if (arrayMatch.Success) {
                 ClearMultilineBuffer();
                 // TODO this may not be correct. Acting as if any [array] tag starts a new one at root.
-                _context = _root;
                 if (arrayMatch.Groups["key"].Success) {
                     // [arrayname] - create a new array in the context
                     string keyString = arrayMatch.Groups["key"].Value;
+                    bool isSubarray = arrayMatch.Groups["subarray"].Success;
 
-                    JObject target = (JObject)_context;
+                    JObject target = null;
+                    if (isSubarray) {
+                        switch (CurrentContext.Type) {
+                            case ArchieContext.UnknownArray:
+                                target = new JObject();
+                                CurrentContext.Target.Add(target);
+                                //NOTE this is not an error, we upgrade current context to Object array first.
+                                CurrentContext.Type = ArchieContext.ObjectArray;
+                                CurrentContext.Target = target;
+                                _arrayContextFirstKey = keyString; //Not sure about this
+                                break;
+                            case ArchieContext.FreeformArray:
+                                target = new JObject();
+                                target["type"] = keyString;
+                                keyString = "value";
+                                CurrentContext.Target.Add(target);
+                                break;
+                        }
+                    }
+                    else {
+                        PopContext();
+                        target = CurrentContext.Target as JObject;
+                    }
+
+                    if (target == null)
+                        throw new Exception();
                     TraverseOrCreateIntermediateKeyPath(ref keyString, ref target, includingFinal: false);
-
-                    // NOTE redefining an array clears it
-                    // @see arrays_complex.13.aml
-                    //if (target[keyString] as JArray != null) {
-                    //    // array path already exists, set context to it
-                    //    context = (JArray)target[keyString];
-                    //}
-                    //else {
-                    //    // no existing array path, create it and set context to it
-                    //    context = new JArray();
-                    //    target[keyString] = context;
-                    //}
-
-                    _context = new JArray();
-                    target[keyString] = _context;
-
-                    _contextType = ContextType.UnknownArray;
+                    var newArray = new JArray();
+                    target[keyString] = newArray;
                     _arrayContextFirstKey = null;
 
+                    var newContext = new Context(ArchieContext.UnknownArray, newArray);
                     if (arrayMatch.Groups["freeform"].Success) {
-                        _contextType = ContextType.FreeformArray;
+                        newContext.Type = ArchieContext.FreeformArray;
                     }
+                    _contextStack.Push(newContext);
                 }
                 else {
-                    // [] - close array and go back to global context
-                    _context = _root;
-                    _contextType = ContextType.Object;
+                    // no key, empty [] - close array and pop to previous context
+                    PopContext();
                 }
                 return true;
             }
@@ -392,7 +452,7 @@ namespace ArchieML {
         /// :endskip
         /// </example>
         /// <returns>Whether the line was handled</returns>
-        private bool ParseSkipCommands() {
+        protected bool ParseSkipCommands() {
             Match skipCommandMatch = SKIP_COMMAND_PATTERN.Match(_line);
             if (skipCommandMatch.Success) {
                 if (skipCommandMatch.Groups["start"].Success) {
@@ -459,6 +519,18 @@ namespace ArchieML {
                 target = (JObject)target[pathFragment];
             }
             keyPathString = includingFinal ? null : keyPath[0];
+        }
+
+        protected void PopContext() {
+            if (_contextStack.Count > 1) {
+                _contextStack.Pop();
+            }
+        }
+
+        protected void PopContextToRoot() {
+            while (_contextStack.Count > 1) {
+                _contextStack.Pop();
+            }
         }
     }
 }
