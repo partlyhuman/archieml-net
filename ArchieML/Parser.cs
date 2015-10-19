@@ -78,7 +78,7 @@ namespace ArchieML {
         protected static Regex IGNORE_COMMAND_PATTERN = new Regex(@"\A\s* :ignore", OPTIONS_CX | RegexOptions.IgnoreCase);
         protected static Regex END_MULTILINE_COMMAND_PATTERN = new Regex(@"\A\s* :end", OPTIONS_CX | RegexOptions.IgnoreCase);
         //protected static Regex MULTILINE_ESCAPES_PATTERN = new Regex(@"^ \\ (?= [ \{ \[ \* \: \\ ] )", OPTIONS_CX);
-        protected static Regex ARRAY_PATTERN = new Regex(@"\A\s* \[ \s* (?<freeform> \+\s* )? (?<subarray> \.+ )? (?<key> [a-zA-Z0-9_\-\.]+ )? \s* ]", OPTIONS_CX);
+        protected static Regex ARRAY_PATTERN = new Regex(@"\A\s* \[ \s* (?<subarray> \.+ )? (?<freeform> \+\s* )? (?<key> [a-zA-Z0-9_\-\.]+ )? \s* ]", OPTIONS_CX);
         protected static Regex SIMPLE_ARRAY_VALUE_PATTERN = new Regex(@"\A\s* \* \s* (?<value> .+ )", OPTIONS_CX);
 
         /// <summary>
@@ -257,7 +257,7 @@ namespace ArchieML {
                         CurrentContext.Target.Add(item);
                     } else {
                         PopContext(); //TODO this can't be right
-                        target = (JObject)CurrentContext.Target;
+                        target = NearestEnclosingJObject(CurrentContext.Target);
                         TraverseOrCreateIntermediateKeyPath(ref keyPathString, ref target, true);
                     }
                     _contextStack.Push(new Context(ArchieContext.Object, target));
@@ -292,7 +292,7 @@ namespace ArchieML {
                 _multilineBuffer.Append(valueString);
                 _multilineBuffer.Append('\n');
 
-                JObject targetObject = CurrentContext.Target as JObject;
+                JObject targetObject = NearestEnclosingJObject(CurrentContext.Target);
 
                 // If we're in an Object array
                 if (CurrentContext.IsAnyOf(ArchieContext.UnknownArray, ArchieContext.ObjectArray)) {
@@ -397,7 +397,7 @@ namespace ArchieML {
                     string keyString = arrayMatch.Groups["key"].Value;
                     bool isSubarray = arrayMatch.Groups["subarray"].Success;
 
-                    JObject target = null;
+                    JObject target = NearestEnclosingJObject(CurrentContext.Target);
                     if (isSubarray) {
                         switch (CurrentContext.Type) {
                             case ArchieContext.UnknownArray:
@@ -409,8 +409,7 @@ namespace ArchieML {
                                 _arrayContextFirstKey = keyString; //Not sure about this
                                 break;
                             case ArchieContext.FreeformArray:
-                                target = new JObject();
-                                target["type"] = keyString;
+                                target = new JObject(new JProperty("type", keyString));
                                 keyString = "value";
                                 CurrentContext.Target.Add(target);
                                 break;
@@ -418,12 +417,14 @@ namespace ArchieML {
                     }
                     else {
                         PopContext();
-                        target = CurrentContext.Target as JObject;
+                        target = NearestEnclosingJObject(CurrentContext.Target);
                     }
 
                     if (target == null)
                         throw new Exception();
-                    TraverseOrCreateIntermediateKeyPath(ref keyString, ref target, includingFinal: false);
+                    if (CurrentContext.Type != ArchieContext.FreeformArray) {
+                        TraverseOrCreateIntermediateKeyPath(ref keyString, ref target, includingFinal: false);
+                    }
                     var newArray = new JArray();
                     target[keyString] = newArray;
                     _arrayContextFirstKey = null;
@@ -519,6 +520,13 @@ namespace ArchieML {
                 target = (JObject)target[pathFragment];
             }
             keyPathString = includingFinal ? null : keyPath[0];
+        }
+
+        protected JObject NearestEnclosingJObject(JToken token) {
+            while ((token.Type != JTokenType.Object) && (token.Parent != null)) {
+                token = token.Parent;
+            }
+            return (JObject)token;
         }
 
         protected void PopContext() {
