@@ -1,4 +1,4 @@
-### WARNING: THIS LIBRARY IS UNDER DEVELOPMENT AND IS NOT PRODUCTION-READY.
+### WARNING: THIS LIBRARY IS UNDER DEVELOPMENT AND IS NOT BATTLE-TESTED. However, it passes the official ArchieML test suite. So that's a start. I'll call it 1.0 pretty soon.
 
 # ArchieML.Net
 
