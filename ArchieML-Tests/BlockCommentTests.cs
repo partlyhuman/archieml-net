@@ -106,5 +106,49 @@ key:value
             var expected = new JObject(new JProperty("key", "value"));
             Assert.IsTrue(JToken.DeepEquals(result, expected));
         }
+        [TestMethod]
+        public void Skip10IgnoreAllContentOnLineAfterEndskipAndSpace() {
+            var result = Archie.Load(@"
+:skip
+:endskip the above
+key:value
+");
+            var expected = JObject.Parse(@"{'key': 'value'}");
+            Assert.IsTrue(JToken.DeepEquals(result, expected));
+        }
+        [TestMethod]
+        public void Skip11IgnoreAllContentOnLineAfterEndskipAndTab() {
+            var result = Archie.Load(@"
+:skip
+:endskip	the above
+key:value
+");
+            var expected = JObject.Parse(@"{'key': 'value'}");
+            Assert.IsTrue(JToken.DeepEquals(result, expected));
+        }
+        [TestMethod]
+        public void Skip12EndNotConfusedWithEndSkip() {
+            var result = Archie.Load(@"
+:skip
+:end	the above
+key:value
+");
+            var expected = new JObject();
+            Assert.IsTrue(JToken.DeepEquals(result, expected));
+        }
+        [TestMethod]
+        public void Skip13IgnoresKeysWithinSkipBlock() {
+            var result = Archie.Load(@"
+key1:value1
+:skip
+other:value
+
+:endskip
+
+key2:value2
+");
+            var expected = JObject.Parse(@"{'key1': 'value1', 'key2': 'value2'}");
+            Assert.IsTrue(JToken.DeepEquals(result, expected));
+        }
     }
 }

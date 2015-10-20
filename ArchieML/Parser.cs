@@ -47,6 +47,7 @@ namespace ArchieML {
     internal class Context {
         public ArchieContext Type;
         public JContainer Target;
+        public string ArrayContextFirstKey;
         public Context() { }
         public Context(ArchieContext type, JContainer target) : this() {
             Type = type;
@@ -121,7 +122,14 @@ namespace ArchieML {
         /// <summary>
         /// Only used when inside an object ("complex") array, the first key encountered is memoized. Whenever it reoccurs, a new object is added to the array and becomes the context.
         /// </summary>
-        protected string _arrayContextFirstKey;
+        protected string _arrayContextFirstKey {
+            get {
+                return CurrentContext.ArrayContextFirstKey;
+            }
+            set {
+                CurrentContext.ArrayContextFirstKey = value;
+            }
+        }
 
         /// <summary>
         /// Whether we are between a :skip and :endskip command. Lines are ignored until :endskip is encountered.
@@ -138,7 +146,6 @@ namespace ArchieML {
             _multilineBufferDestination = null;
             _root = new JObject();
             _contextStack = new Stack<Context>();
-            _arrayContextFirstKey = null;
             _isSkipping = false;
             _contextStack.Push(new Context(ArchieContext.Object, _root));
         }
@@ -406,12 +413,19 @@ namespace ArchieML {
                                 //NOTE this is not an error, we upgrade current context to Object array first.
                                 CurrentContext.Type = ArchieContext.ObjectArray;
                                 CurrentContext.Target = target;
-                                _arrayContextFirstKey = keyString; //Not sure about this
+                                CurrentContext.ArrayContextFirstKey = keyString;
                                 break;
                             case ArchieContext.FreeformArray:
                                 target = new JObject(new JProperty("type", keyString));
                                 keyString = "value";
                                 CurrentContext.Target.Add(target);
+                                break;
+                            case ArchieContext.ObjectArray:
+                                if (keyString == CurrentContext.ArrayContextFirstKey) {
+                                    target = new JObject();
+                                    CurrentContext.Target.Parent.Add(target);
+                                    CurrentContext.Target = target;
+                                }
                                 break;
                         }
                     }
@@ -420,14 +434,11 @@ namespace ArchieML {
                         target = NearestEnclosingJObject(CurrentContext.Target);
                     }
 
-                    if (target == null)
-                        throw new Exception();
                     if (CurrentContext.Type != ArchieContext.FreeformArray) {
                         TraverseOrCreateIntermediateKeyPath(ref keyString, ref target, includingFinal: false);
                     }
                     var newArray = new JArray();
                     target[keyString] = newArray;
-                    _arrayContextFirstKey = null;
 
                     var newContext = new Context(ArchieContext.UnknownArray, newArray);
                     if (arrayMatch.Groups["freeform"].Success) {
