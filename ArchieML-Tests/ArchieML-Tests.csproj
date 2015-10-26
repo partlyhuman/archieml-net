@@ -68,6 +68,7 @@
     <Compile Include="IgnoreTests.cs" />
     <Compile Include="SimpleArrayTests.cs" />
     <Compile Include="ValueTests.cs" />
+    <Compile Include="WebTests.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\ArchieML\ArchieML.csproj">

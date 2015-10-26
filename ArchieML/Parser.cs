@@ -48,11 +48,14 @@ namespace ArchieML {
         public ArchieContext Type;
         public JContainer Target;
         public string ArrayContextFirstKey;
+
         public Context() { }
+
         public Context(ArchieContext type, JContainer target) : this() {
             Type = type;
             Target = target;
         }
+        
         /// <summary>
         /// Checks if the context is in the list of passed, valid contexts.
         /// </summary>
@@ -117,19 +120,6 @@ namespace ArchieML {
         }
 
         protected Stack<Context> _contextStack;
-
-
-        /// <summary>
-        /// Only used when inside an object ("complex") array, the first key encountered is memoized. Whenever it reoccurs, a new object is added to the array and becomes the context.
-        /// </summary>
-        protected string _arrayContextFirstKey {
-            get {
-                return CurrentContext.ArrayContextFirstKey;
-            }
-            set {
-                CurrentContext.ArrayContextFirstKey = value;
-            }
-        }
 
         /// <summary>
         /// Whether we are between a :skip and :endskip command. Lines are ignored until :endskip is encountered.
@@ -305,10 +295,10 @@ namespace ArchieML {
                 if (CurrentContext.IsAnyOf(ArchieContext.UnknownArray, ArchieContext.ObjectArray)) {
                     //NOTE: in the Object Array context, the context variable can be either the parent array (when totally empty), or the currently open object array instance.
                     CurrentContext.Type = ArchieContext.ObjectArray;
-                    if (_arrayContextFirstKey == null) {
-                        _arrayContextFirstKey = keyString;
+                    if (CurrentContext.ArrayContextFirstKey == null) {
+                        CurrentContext.ArrayContextFirstKey = keyString;
                     }
-                    if (_arrayContextFirstKey == keyString) {
+                    if (CurrentContext.ArrayContextFirstKey == keyString) {
                         // first key or repeat of first key to appear, create new object
                         targetObject = new JObject();
                         if (CurrentContext.Target.Type == JTokenType.Object) {
