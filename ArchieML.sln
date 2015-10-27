@@ -9,8 +9,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "aml", "aml\aml.csproj", "{7
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ArchieML-Tests", "ArchieML-Tests\ArchieML-Tests.csproj", "{3F6CEF0D-8D97-4BC9-A5ED-8AD6BEF83255}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ArchieML-GoogleDrive", "ArchieML-GoogleDrive\ArchieML-GoogleDrive.csproj", "{E84FEDE7-172C-47D9-8C46-515951A90BDC}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -29,10 +27,6 @@ Global
 		{3F6CEF0D-8D97-4BC9-A5ED-8AD6BEF83255}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{3F6CEF0D-8D97-4BC9-A5ED-8AD6BEF83255}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{3F6CEF0D-8D97-4BC9-A5ED-8AD6BEF83255}.Release|Any CPU.Build.0 = Release|Any CPU
-		{E84FEDE7-172C-47D9-8C46-515951A90BDC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{E84FEDE7-172C-47D9-8C46-515951A90BDC}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{E84FEDE7-172C-47D9-8C46-515951A90BDC}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{E84FEDE7-172C-47D9-8C46-515951A90BDC}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

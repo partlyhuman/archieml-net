@@ -74,7 +74,6 @@ namespace ArchieML {
     /// </summary>
     /// <see cref="http://archieml.org/spec/1.0/CR-20150509.html"/>
     internal class Parser {
-
         protected static RegexOptions OPTIONS_CX = RegexOptions.Compiled | RegexOptions.IgnorePatternWhitespace;
         protected static Regex KEY_VALUE_PATTERN = new Regex(@"\A\s* (?<key> [a-zA-Z0-9_\-\.]+ ) \s* : \s* (?<value> .+ )$", OPTIONS_CX);
         protected static Regex OBJECT_SCOPE_PATTERN = new Regex(@"\A\s* { \s* (?<subobject> \.+ )? (?<key> [a-zA-Z0-9_\-\.]+ )? \s* }", OPTIONS_CX);
