@@ -2,7 +2,7 @@
 
 # ArchieML.Net
 
-An [ArchieML](http://archieml.org) parser for .Net, test suite, and commandline conversion tool.
+An [ArchieML](http://archieml.org) parser for .Net, test suite, commandline conversion tool, and Unity3d package.
 
 >ArchieML is a structured text format optimized for human writability.
 
