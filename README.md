@@ -1,8 +1,8 @@
-### WARNING: THIS LIBRARY IS UNDER DEVELOPMENT AND IS NOT BATTLE-TESTED. However, it passes the official ArchieML test suite. So that's a start. I'll call it 1.0 pretty soon.
+### WARNING: THIS LIBRARY IS NOT YET BATTLE-TESTED. However, it passes 100% of the official ArchieML test suite. Use at your own discretion and please file any bugs you may run into!
 
 # ArchieML.Net
 
-An [ArchieML](http://archieml.org) parser for .Net, test suite, commandline conversion tool, and Unity3d package.
+An [ArchieML](http://archieml.org) parser for .Net 3.5 and up, including test suite, commandline conversion tool, and Unity3d package.
 
 >ArchieML is a structured text format optimized for human writability.
 
@@ -14,6 +14,12 @@ The library depends on [JSON.Net](https://github.com/JamesNK/Newtonsoft.Json). S
 
 From a `JObject`, you can very conveniently [query the data using LINQ extension methods](http://www.newtonsoft.com/json/help/html/QueryingLINQtoJSON.htm), or convert it to a .Net object, whether this is an atomic value, collection type, or custom class, using [ToObject](http://www.newtonsoft.com/json/help/html/ToObjectComplex.htm).
 
-Input welcome. Use Github Issues.
+## aml
+
+Included is a commandline tool, aml.exe, which converts ArchieML to JSON or XML on the command line. It can be used with files or standard in. Run with `-h` to see usage.
+
+## Unity package
+
+Only the two .dll files included in the `Plugins/` directory are required. The `Test/` directory just shows an example use and can be safely deleted.
 
 -- Roger Braunstein, @partlyhuman 2015
