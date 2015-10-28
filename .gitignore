@@ -1,3 +1,4 @@
+
 # Created by https://www.gitignore.io/api/visualstudio
 
 ### VisualStudio ###
@@ -217,3 +218,4 @@ FakesAssemblies/
 **/*.Server/GeneratedArtifacts
 **/*.Server/ModelManifest.xml
 _Pvt_Extensions
+
